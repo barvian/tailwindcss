@@ -8,7 +8,7 @@ import {
   type Rule,
 } from './ast'
 
-export function parse(input: string) {
+export function parse(input: string, { trackSource }: { trackSource?: boolean } = {}): AstNode[] {
   input = input.replaceAll('\r\n', '\n')
 
   let ast: AstNode[] = []
@@ -24,10 +24,12 @@ export function parse(input: string) {
   let lineStart = 0
 
   let current = ''
-  let currentStart = {
-    line: 1,
-    column: 0,
-  }
+  let currentStart = trackSource
+    ? {
+        line: 1,
+        column: 0,
+      }
+    : undefined
   let closingBracketStack = ''
 
   for (let i = 0; i < input.length; i++) {
@@ -36,7 +38,7 @@ export function parse(input: string) {
     if (char === '\n') {
       line += 1
       lineStart = i + 1
-      if (current.length === 0) currentStart = { line, column: 0 }
+      if (currentStart && current.length === 0) currentStart = { line, column: 0 }
     }
 
     // Current character is a `\` therefore the next character is escaped,
@@ -83,7 +85,7 @@ export function parse(input: string) {
         else if (input[j] === '\n') {
           line += 1
           lineStart = j + 1
-          if (current.length === 0) currentStart = { line, column: 0 }
+          if (currentStart && current.length === 0) currentStart = { line, column: 0 }
         }
 
         // End of the comment
@@ -211,7 +213,7 @@ export function parse(input: string) {
             else if (input[j] === '\n') {
               line += 1
               lineStart = j + 1
-              if (current.length === 0) currentStart = { line, column: 0 }
+              if (currentStart && current.length === 0) currentStart = { line, column: 0 }
             }
 
             // End of the comment
@@ -274,7 +276,7 @@ export function parse(input: string) {
         else if (input[j] === '\n') {
           line += 1
           lineStart = j + 1
-          if (current.length === 0) currentStart = { line, column: 0 }
+          if (currentStart && current.length === 0) currentStart = { line, column: 0 }
         }
       }
 
@@ -286,7 +288,7 @@ export function parse(input: string) {
       }
 
       current = ''
-      currentStart = { line, column: i - lineStart }
+      currentStart &&= { line, column: i - lineStart }
     }
 
     // End of a body-less at-rule.
@@ -312,7 +314,7 @@ export function parse(input: string) {
 
       // Reset the state for the next node.
       current = ''
-      currentStart = { line, column: i - lineStart }
+      currentStart &&= { line, column: i - lineStart }
       node = null
     }
 
@@ -336,7 +338,7 @@ export function parse(input: string) {
       }
 
       current = ''
-      currentStart = { line, column: i - lineStart }
+      currentStart &&= { line, column: i - lineStart }
     }
 
     // Start of a block.
@@ -361,7 +363,7 @@ export function parse(input: string) {
 
       // Reset the state for the next node.
       current = ''
-      currentStart = { line, column: i - lineStart }
+      currentStart &&= { line, column: i - lineStart }
       node = null
     }
 
@@ -402,7 +404,7 @@ export function parse(input: string) {
 
           // Reset the state for the next node.
           current = ''
-          currentStart = { line, column: i - lineStart }
+          currentStart &&= { line, column: i - lineStart }
           node = null
         }
 
@@ -453,7 +455,7 @@ export function parse(input: string) {
 
       // Reset the state for the next node.
       current = ''
-      currentStart = { line, column: i - lineStart }
+      currentStart &&= { line, column: i - lineStart }
       node = null
     }
 
@@ -461,7 +463,7 @@ export function parse(input: string) {
     else {
       // Skip whitespace at the start of a new node.
       if (current.length === 0 && (char === ' ' || char === '\n' || char === '\t')) {
-        currentStart = { line, column: i + 1 - lineStart }
+        currentStart &&= { line, column: i + 1 - lineStart }
         continue
       }
 
@@ -484,7 +486,7 @@ export function parse(input: string) {
 
 function parseDeclaration(
   current: string,
-  source: Location,
+  source?: Location,
   colonIdx: number = current.indexOf(':'),
 ): Declaration {
   let importantIdx = current.indexOf('!important', colonIdx + 1)
