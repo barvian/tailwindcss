@@ -4,7 +4,7 @@ import {
   type AstNode,
   type Comment,
   type Declaration,
-  type Location,
+  type Range,
   type Rule,
 } from './ast'
 
@@ -29,13 +29,21 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
   // Source location tracking
   let sourceStartLine = 1
   let sourceStartColumn = 0
+  let sourceEndLine = 1
+  let sourceEndColumn = 0
 
   function sourceRange() {
     if (!trackSource) return null
 
     return {
-      line: sourceStartLine,
-      column: sourceStartColumn,
+      start: {
+        line: sourceStartLine,
+        column: sourceStartColumn,
+      },
+      end: {
+        line: sourceEndLine,
+        column: sourceEndColumn,
+      },
     }
   }
 
@@ -49,6 +57,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       if (current.length === 0) {
         sourceStartLine = line
         sourceStartColumn = 0
+        sourceEndLine = line
+        sourceEndColumn = 0
       }
     }
 
@@ -99,6 +109,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
           if (current.length === 0) {
             sourceStartLine = line
             sourceStartColumn = 0
+            sourceEndLine = line
+            sourceEndColumn = 0
           }
         }
 
@@ -230,6 +242,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
               if (current.length === 0) {
                 sourceStartLine = line
                 sourceStartColumn = 0
+                sourceEndLine = line
+                sourceEndColumn = 0
               }
             }
 
@@ -296,6 +310,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
           if (current.length === 0) {
             sourceStartLine = line
             sourceStartColumn = 0
+            sourceEndLine = line
+            sourceEndColumn = 0
           }
         }
       }
@@ -310,6 +326,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       current = ''
       sourceStartLine = line
       sourceStartColumn = i - lineStart
+      sourceEndLine = line
+      sourceEndColumn = i - lineStart
     }
 
     // End of a body-less at-rule.
@@ -337,6 +355,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       current = ''
       sourceStartLine = line
       sourceStartColumn = i - lineStart
+      sourceEndLine = line
+      sourceEndColumn = i - lineStart
       node = null
     }
 
@@ -362,6 +382,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       current = ''
       sourceStartLine = line
       sourceStartColumn = i - lineStart
+      sourceEndLine = line
+      sourceEndColumn = i - lineStart
     }
 
     // Start of a block.
@@ -388,6 +410,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       current = ''
       sourceStartLine = line
       sourceStartColumn = i - lineStart
+      sourceEndLine = line
+      sourceEndColumn = i - lineStart
       node = null
     }
 
@@ -430,6 +454,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
           current = ''
           sourceStartLine = line
           sourceStartColumn = i - lineStart
+          sourceEndLine = line
+          sourceEndColumn = i - lineStart
           node = null
         }
 
@@ -483,6 +509,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       current = ''
       sourceStartLine = line
       sourceStartColumn = i - lineStart
+      sourceEndLine = line
+      sourceEndColumn = i - lineStart
       node = null
     }
 
@@ -492,6 +520,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       if (current.length === 0 && (char === ' ' || char === '\n' || char === '\t')) {
         sourceStartLine = line
         sourceStartColumn = i + 1 - lineStart
+        sourceEndLine = line
+        sourceEndColumn = i + 1 - lineStart
         continue
       }
 
@@ -514,7 +544,7 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
 
 function parseDeclaration(
   current: string,
-  source?: Location | null,
+  source?: Range | null,
   colonIdx: number = current.indexOf(':'),
 ): Declaration {
   let importantIdx = current.indexOf('!important', colonIdx + 1)
