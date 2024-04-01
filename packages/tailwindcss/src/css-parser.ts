@@ -31,7 +31,7 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
   let sourceStartColumn = 0
 
   function sourceRange() {
-    if (!trackSource) return undefined
+    if (!trackSource) return null
 
     return {
       line: sourceStartLine,
@@ -46,7 +46,7 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       line += 1
       lineStart = i + 1
 
-      if (trackSource && current.length === 0) {
+      if (current.length === 0) {
         sourceStartLine = line
         sourceStartColumn = 0
       }
@@ -96,7 +96,7 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
         else if (input[j] === '\n') {
           line += 1
           lineStart = j + 1
-          if (trackSource && current.length === 0) {
+          if (current.length === 0) {
             sourceStartLine = line
             sourceStartColumn = 0
           }
@@ -227,7 +227,7 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
             else if (input[j] === '\n') {
               line += 1
               lineStart = j + 1
-              if (trackSource && current.length === 0) {
+              if (current.length === 0) {
                 sourceStartLine = line
                 sourceStartColumn = 0
               }
@@ -293,7 +293,7 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
         else if (input[j] === '\n') {
           line += 1
           lineStart = j + 1
-          if (trackSource && current.length === 0) {
+          if (current.length === 0) {
             sourceStartLine = line
             sourceStartColumn = 0
           }
@@ -460,6 +460,7 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
                 .trim(),
               important: importantIdx !== -1,
               source: sourceRange(),
+              destination: null,
             } satisfies Declaration)
           }
         }
@@ -513,7 +514,7 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
 
 function parseDeclaration(
   current: string,
-  source?: Location,
+  source?: Location | null,
   colonIdx: number = current.indexOf(':'),
 ): Declaration {
   let importantIdx = current.indexOf('!important', colonIdx + 1)
@@ -522,6 +523,7 @@ function parseDeclaration(
     property: current.slice(0, colonIdx).trim(),
     value: current.slice(colonIdx + 1, importantIdx === -1 ? current.length : importantIdx).trim(),
     important: importantIdx !== -1,
-    source,
+    source: source ?? null,
+    destination: null,
   }
 }
