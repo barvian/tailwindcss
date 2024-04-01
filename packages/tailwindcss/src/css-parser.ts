@@ -24,12 +24,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
   let lineStart = 0
 
   let current = ''
-  let currentStart = trackSource
-    ? {
-        line: 1,
-        column: 0,
-      }
-    : undefined
+  let startLine = 1
+  let startColumn = 0
   let closingBracketStack = ''
 
   for (let i = 0; i < input.length; i++) {
@@ -38,7 +34,11 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
     if (char === '\n') {
       line += 1
       lineStart = i + 1
-      if (currentStart && current.length === 0) currentStart = { line, column: 0 }
+
+      if (trackSource && current.length === 0) {
+        startLine = line
+        startColumn = 0
+      }
     }
 
     // Current character is a `\` therefore the next character is escaped,
@@ -85,7 +85,10 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
         else if (input[j] === '\n') {
           line += 1
           lineStart = j + 1
-          if (currentStart && current.length === 0) currentStart = { line, column: 0 }
+          if (trackSource && current.length === 0) {
+            startLine = line
+            startColumn = 0
+          }
         }
 
         // End of the comment
@@ -100,6 +103,12 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       // Collect all license comments so that we can hoist them to the top of
       // the AST.
       if (commentString[2] === '!') {
+        let currentStart = trackSource
+          ? {
+              line: startLine,
+              column: startColumn,
+            }
+          : undefined
         licenseComments.push(comment(commentString.slice(2, -2), currentStart))
       }
     }
@@ -213,7 +222,10 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
             else if (input[j] === '\n') {
               line += 1
               lineStart = j + 1
-              if (currentStart && current.length === 0) currentStart = { line, column: 0 }
+              if (trackSource && current.length === 0) {
+                startLine = line
+                startColumn = 0
+              }
             }
 
             // End of the comment
@@ -276,9 +288,19 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
         else if (input[j] === '\n') {
           line += 1
           lineStart = j + 1
-          if (currentStart && current.length === 0) currentStart = { line, column: 0 }
+          if (trackSource && current.length === 0) {
+            startLine = line
+            startColumn = 0
+          }
         }
       }
+
+      let currentStart = trackSource
+        ? {
+            line: startLine,
+            column: startColumn,
+          }
+        : undefined
 
       let declaration = parseDeclaration(current, currentStart, colonIdx)
       if (parent) {
@@ -288,7 +310,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       }
 
       current = ''
-      currentStart &&= { line, column: i - lineStart }
+      startLine = line
+      startColumn = i - lineStart
     }
 
     // End of a body-less at-rule.
@@ -300,6 +323,13 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
     //                 ^
     // ```
     else if (char === ';' && current[0] === '@') {
+      let currentStart = trackSource
+        ? {
+            line: startLine,
+            column: startColumn,
+          }
+        : undefined
+
       node = rule(current, [], currentStart)
 
       // At-rule is nested inside of a rule, attach it to the parent.
@@ -314,7 +344,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
 
       // Reset the state for the next node.
       current = ''
-      currentStart &&= { line, column: i - lineStart }
+      startLine = line
+      startColumn = i - lineStart
       node = null
     }
 
@@ -330,6 +361,13 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
     // ```
     //
     else if (char === ';') {
+      let currentStart = trackSource
+        ? {
+            line: startLine,
+            column: startColumn,
+          }
+        : undefined
+
       let declaration = parseDeclaration(current, currentStart)
       if (parent) {
         parent.nodes.push(declaration)
@@ -338,12 +376,20 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       }
 
       current = ''
-      currentStart &&= { line, column: i - lineStart }
+      startLine = line
+      startColumn = i - lineStart
     }
 
     // Start of a block.
     else if (char === '{') {
       closingBracketStack += '}'
+
+      let currentStart = trackSource
+        ? {
+            line: startLine,
+            column: startColumn,
+          }
+        : undefined
 
       // At this point `current` should resemble a selector or an at-rule.
       node = rule(current.trim(), [], currentStart)
@@ -363,7 +409,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
 
       // Reset the state for the next node.
       current = ''
-      currentStart &&= { line, column: i - lineStart }
+      startLine = line
+      startColumn = i - lineStart
       node = null
     }
 
@@ -390,6 +437,13 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
         // }
         // ```
         if (current[0] === '@') {
+          let currentStart = trackSource
+            ? {
+                line: startLine,
+                column: startColumn,
+              }
+            : undefined
+
           node = rule(current.trim(), [], currentStart)
 
           // At-rule is nested inside of a rule, attach it to the parent.
@@ -404,7 +458,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
 
           // Reset the state for the next node.
           current = ''
-          currentStart &&= { line, column: i - lineStart }
+          startLine = line
+          startColumn = i - lineStart
           node = null
         }
 
@@ -426,6 +481,13 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
 
           // Attach the declaration to the parent.
           if (parent) {
+            let currentStart = trackSource
+              ? {
+                  line: startLine,
+                  column: startColumn,
+                }
+              : undefined
+
             let importantIdx = current.indexOf('!important', colonIdx + 1)
             parent.nodes.push({
               kind: 'declaration',
@@ -455,7 +517,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
 
       // Reset the state for the next node.
       current = ''
-      currentStart &&= { line, column: i - lineStart }
+      startLine = line
+      startColumn = i - lineStart
       node = null
     }
 
@@ -463,7 +526,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
     else {
       // Skip whitespace at the start of a new node.
       if (current.length === 0 && (char === ' ' || char === '\n' || char === '\t')) {
-        currentStart &&= { line, column: i + 1 - lineStart }
+        startLine = line
+        startColumn = i + 1 - lineStart
         continue
       }
 
