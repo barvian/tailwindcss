@@ -24,9 +24,20 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
   let lineStart = 0
 
   let current = ''
-  let startLine = 1
-  let startColumn = 0
   let closingBracketStack = ''
+
+  // Source location tracking
+  let sourceStartLine = 1
+  let sourceStartColumn = 0
+
+  function sourceRange() {
+    if (!trackSource) return undefined
+
+    return {
+      line: sourceStartLine,
+      column: sourceStartColumn,
+    }
+  }
 
   for (let i = 0; i < input.length; i++) {
     let char = input[i]
@@ -36,8 +47,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       lineStart = i + 1
 
       if (trackSource && current.length === 0) {
-        startLine = line
-        startColumn = 0
+        sourceStartLine = line
+        sourceStartColumn = 0
       }
     }
 
@@ -86,8 +97,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
           line += 1
           lineStart = j + 1
           if (trackSource && current.length === 0) {
-            startLine = line
-            startColumn = 0
+            sourceStartLine = line
+            sourceStartColumn = 0
           }
         }
 
@@ -103,13 +114,7 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       // Collect all license comments so that we can hoist them to the top of
       // the AST.
       if (commentString[2] === '!') {
-        let currentStart = trackSource
-          ? {
-              line: startLine,
-              column: startColumn,
-            }
-          : undefined
-        licenseComments.push(comment(commentString.slice(2, -2), currentStart))
+        licenseComments.push(comment(commentString.slice(2, -2), sourceRange()))
       }
     }
 
@@ -223,8 +228,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
               line += 1
               lineStart = j + 1
               if (trackSource && current.length === 0) {
-                startLine = line
-                startColumn = 0
+                sourceStartLine = line
+                sourceStartColumn = 0
               }
             }
 
@@ -289,20 +294,13 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
           line += 1
           lineStart = j + 1
           if (trackSource && current.length === 0) {
-            startLine = line
-            startColumn = 0
+            sourceStartLine = line
+            sourceStartColumn = 0
           }
         }
       }
 
-      let currentStart = trackSource
-        ? {
-            line: startLine,
-            column: startColumn,
-          }
-        : undefined
-
-      let declaration = parseDeclaration(current, currentStart, colonIdx)
+      let declaration = parseDeclaration(current, sourceRange(), colonIdx)
       if (parent) {
         parent.nodes.push(declaration)
       } else {
@@ -310,8 +308,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       }
 
       current = ''
-      startLine = line
-      startColumn = i - lineStart
+      sourceStartLine = line
+      sourceStartColumn = i - lineStart
     }
 
     // End of a body-less at-rule.
@@ -323,14 +321,7 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
     //                 ^
     // ```
     else if (char === ';' && current[0] === '@') {
-      let currentStart = trackSource
-        ? {
-            line: startLine,
-            column: startColumn,
-          }
-        : undefined
-
-      node = rule(current, [], currentStart)
+      node = rule(current, [], sourceRange())
 
       // At-rule is nested inside of a rule, attach it to the parent.
       if (parent) {
@@ -344,8 +335,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
 
       // Reset the state for the next node.
       current = ''
-      startLine = line
-      startColumn = i - lineStart
+      sourceStartLine = line
+      sourceStartColumn = i - lineStart
       node = null
     }
 
@@ -361,14 +352,7 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
     // ```
     //
     else if (char === ';') {
-      let currentStart = trackSource
-        ? {
-            line: startLine,
-            column: startColumn,
-          }
-        : undefined
-
-      let declaration = parseDeclaration(current, currentStart)
+      let declaration = parseDeclaration(current, sourceRange())
       if (parent) {
         parent.nodes.push(declaration)
       } else {
@@ -376,23 +360,16 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
       }
 
       current = ''
-      startLine = line
-      startColumn = i - lineStart
+      sourceStartLine = line
+      sourceStartColumn = i - lineStart
     }
 
     // Start of a block.
     else if (char === '{') {
       closingBracketStack += '}'
 
-      let currentStart = trackSource
-        ? {
-            line: startLine,
-            column: startColumn,
-          }
-        : undefined
-
       // At this point `current` should resemble a selector or an at-rule.
-      node = rule(current.trim(), [], currentStart)
+      node = rule(current.trim(), [], sourceRange())
 
       // Attach the rule to the parent in case it's nested.
       if (parent) {
@@ -409,8 +386,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
 
       // Reset the state for the next node.
       current = ''
-      startLine = line
-      startColumn = i - lineStart
+      sourceStartLine = line
+      sourceStartColumn = i - lineStart
       node = null
     }
 
@@ -437,14 +414,7 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
         // }
         // ```
         if (current[0] === '@') {
-          let currentStart = trackSource
-            ? {
-                line: startLine,
-                column: startColumn,
-              }
-            : undefined
-
-          node = rule(current.trim(), [], currentStart)
+          node = rule(current.trim(), [], sourceRange())
 
           // At-rule is nested inside of a rule, attach it to the parent.
           if (parent) {
@@ -458,8 +428,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
 
           // Reset the state for the next node.
           current = ''
-          startLine = line
-          startColumn = i - lineStart
+          sourceStartLine = line
+          sourceStartColumn = i - lineStart
           node = null
         }
 
@@ -481,13 +451,6 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
 
           // Attach the declaration to the parent.
           if (parent) {
-            let currentStart = trackSource
-              ? {
-                  line: startLine,
-                  column: startColumn,
-                }
-              : undefined
-
             let importantIdx = current.indexOf('!important', colonIdx + 1)
             parent.nodes.push({
               kind: 'declaration',
@@ -496,7 +459,7 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
                 .slice(colonIdx + 1, importantIdx === -1 ? current.length : importantIdx)
                 .trim(),
               important: importantIdx !== -1,
-              source: currentStart,
+              source: sourceRange(),
             } satisfies Declaration)
           }
         }
@@ -517,8 +480,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
 
       // Reset the state for the next node.
       current = ''
-      startLine = line
-      startColumn = i - lineStart
+      sourceStartLine = line
+      sourceStartColumn = i - lineStart
       node = null
     }
 
@@ -526,8 +489,8 @@ export function parse(input: string, { trackSource }: { trackSource?: boolean } 
     else {
       // Skip whitespace at the start of a new node.
       if (current.length === 0 && (char === ' ' || char === '\n' || char === '\t')) {
-        startLine = line
-        startColumn = i + 1 - lineStart
+        sourceStartLine = line
+        sourceStartColumn = i + 1 - lineStart
         continue
       }
 
